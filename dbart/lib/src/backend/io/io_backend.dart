@@ -17,7 +17,7 @@ final class IOBackend implements BackendBase {
   IOBackend({FileHandlePool? pool}) : pool = pool ?? FileHandlePool();
 
   @override
-  Future<Index?> getIndex(String name) async {
+  Future<Uint8List> getIndex(String name) async {
     final handle = pool.getHandle("$name$_kIndexSuffix");
     handle.setPositionSync(0);
     final indexSize = (await handle.read(4)).uint32();
@@ -28,16 +28,16 @@ final class IOBackend implements BackendBase {
       throw StateError("Index $name may be corrupted.");
     }
 
-    return Index(buffer: buffer);
+    return buffer;
   }
 
   @override
   Future<void> writeIndex(String name, Index index) async {
-    final indexSize = index.buffer.length;
+    final indexBuffer = index.toBuffer();
     final handle = pool.getHandle("$name$_kIndexSuffix");
-    final buffer = Uint8List(4 + indexSize);
-    buffer.setUint32(indexSize);
-    buffer.setRange(4, 4 + indexSize, index.buffer);
+    final buffer = Uint8List(4 + indexBuffer.length);
+    buffer.setUint32(indexBuffer.length);
+    buffer.setRange(4, 4 + indexBuffer.length, indexBuffer);
     await handle.writeFrom(buffer);
     await handle.flush();
   }

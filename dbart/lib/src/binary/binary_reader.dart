@@ -37,6 +37,13 @@ final class BinaryReader {
   }
 
   @preferInline
+  double readDouble() {
+    final value = _view.getFloat64(_offset);
+    _offset += 8;
+    return value;
+  }
+
+  @preferInline
   bool readBool() => readByte() == 1;
 
   /// Reads a [Uint8List]. It returns a view to the underlying buffer,
@@ -69,5 +76,41 @@ final class BinaryReader {
       deleted: deleted,
       data: data,
     );
+  }
+
+  Map<String, dynamic> decodeEntry() {
+    final map = <String, dynamic>{};
+    while (_buffer.length > _offset) {
+      final key = readString();
+      final value = _readValue();
+      map[key] = value;
+    }
+    return map;
+  }
+
+  dynamic _readValue() {
+    final valueType = ValueType.values[_buffer[_offset++]];
+    return switch (valueType) {
+      ValueType.string => readString(),
+      ValueType.bool => readBool(),
+      ValueType.int => readInt32(),
+      ValueType.double => readDouble(),
+      ValueType.list => _readList(),
+      ValueType.map => _readMap(),
+    };
+  }
+
+  List<dynamic> _readList() {
+    final len = readInt32();
+    return List.generate(len, (index) => _readValue());
+  }
+
+  Map<String, dynamic> _readMap() {
+    final len = readInt32();
+    final map = <String, dynamic>{};
+    for (int i = 0; i < len; i++) {
+      map[readString()] = _readValue();
+    }
+    return map;
   }
 }

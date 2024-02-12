@@ -14,6 +14,21 @@ class Entry {
     required this.deleted,
   }) : assert(key is String || key is int, "key must be of type String or int.");
 
+  Entry.deleted(this.key)
+      : data = Uint8List(0),
+        deleted = true;
+
+  factory Entry.fromData(dynamic key, Map<String, dynamic> data) {
+    final writer = BinaryWriter();
+    writer.encodeEntry(data);
+
+    return Entry(
+      key: key,
+      data: writer.takeBytes(),
+      deleted: false,
+    );
+  }
+
   Uint8List toBuffer() {
     final writer = BinaryWriter();
     writer.writeEntry(this);

@@ -19,7 +19,6 @@ class IndexableSkipList<K, V> {
   final Comparator<K> _comparator;
 
   int _height = 1;
-
   int _length = 0;
 
   IndexableSkipList(this._comparator, [Random? random]) : _random = random ?? Random();
@@ -29,6 +28,8 @@ class IndexableSkipList<K, V> {
   Iterable<K> get keys => _KeyIterable(_head);
 
   Iterable<V> get values => _ValueIterable(_head);
+
+  Iterable<(K, V)> get entries => _EntryIterable(_head);
 
   V? insert(K key, V? value) {
     // TODO: maybe insert values of same key in a list inside the same node
@@ -327,4 +328,20 @@ class _ValueIterable<K, V> extends IterableBase<V> {
 
   @override
   Iterator<V> get iterator => _ValueIterator(head);
+}
+
+class _EntryIterator<K, V> extends _Iterator<K, V, (K, V)> {
+  _EntryIterator(_Node<K?, V?> node) : super(node);
+
+  @override
+  (K, V) get current => (node!.key!, node!.value!);
+}
+
+class _EntryIterable<K, V> extends IterableBase<(K, V)> {
+  final _Node<K?, V?> head;
+
+  _EntryIterable(this.head);
+
+  @override
+  Iterator<(K, V)> get iterator => _EntryIterator(head);
 }

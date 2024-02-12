@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dbart/src/binary/spec.dart';
 import 'package:dbart/src/entry/entry.dart';
 import 'package:dbart/src/utils/ext.dart';
 import 'package:dbart/src/utils/utils.dart';
@@ -51,6 +52,43 @@ final class BinaryWriter {
     writeBytes(buf);
   }
 
+  @preferInline
+  void writeKey(dynamic key) {
+    assert(key is String || key is int, "keys must be of type String or int.");
+    if (key is String) {
+      writeString(key);
+    } else {
+      writeInt32(key);
+    }
+  }
+
+  void write(dynamic value) {
+    switch (value) {
+      case String _:
+        writeString(value);
+        break;
+
+      case int _:
+        writeInt32(value);
+        break;
+
+      case double _:
+        writeDouble(value);
+        break;
+
+      case bool _:
+        writeBool(value);
+        break;
+
+      case Uint8List _:
+        writeBytes(value);
+        break;
+
+      default:
+        throw "Unable to write value of type ${value.runtimeType}";
+    }
+  }
+
   void writeBytes(Uint8List value) {
     final len = value.length;
     final buffer = Uint8List(len + 4);
@@ -75,9 +113,58 @@ final class BinaryWriter {
     writeBytes(entry.data);
   }
 
+  void encodeEntry(Map<String, dynamic> data) {
+    data.forEach((key, value) {
+      writeString(key);
+      _writeValue(value);
+    });
+  }
+
   @preferInline
   Uint8List takeBytes() {
     return _bytesBuilder.takeBytes();
+  }
+
+  void _writeValue(dynamic value) {
+    switch (value) {
+      case String _:
+        _bytesBuilder.addByte(ValueType.string.index);
+        writeString(value);
+        break;
+
+      case int _:
+        _bytesBuilder.addByte(ValueType.int.index);
+        writeInt32(value);
+        break;
+
+      case double _:
+        _bytesBuilder.addByte(ValueType.double.index);
+        writeDouble(value);
+        break;
+
+      case bool _:
+        _bytesBuilder.addByte(ValueType.bool.index);
+        writeBool(value);
+        break;
+
+      default:
+        if (value is List) {
+          _bytesBuilder.addByte(ValueType.list.index);
+          writeInt32(value.length);
+          for (final element in value) {
+            _writeValue(element);
+          }
+        } else if (value is Map) {
+          _bytesBuilder.addByte(ValueType.map.index);
+          writeInt32(value.length);
+          for (final entry in value.entries) {
+            writeString(entry.key);
+            _writeValue(entry.value);
+          }
+        } else {
+          throw "Unable to encode value of type ${value.runtimeType}";
+        }
+    }
   }
 
   @preferInline
