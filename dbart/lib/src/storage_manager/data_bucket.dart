@@ -9,19 +9,27 @@ import 'package:dbart/src/storage_manager/storage_manager.dart';
 /// Also it parses an entry back to a [Map<String, dynamic>].
 final class DataBucket {
   final BackendBase backend;
-  final String collectionName;
-  final String dbName;
+  final String path;
   final KeyType keyType;
   final Map<String, Index> indexes;
 
-  DataBucket(this.backend, this.dbName, this.collectionName, this.keyType, this.indexes);
+  DataBucket(this.backend, this.path, this.keyType, this.indexes);
 
   /// Retrieves an entry at the specified [position] and then parses it.
   Future<Map<String, dynamic>?> getEntry(dynamic key) async {
     final position = indexes[kIdIndexName]!.getPosition(key);
     if (position == null) return null;
 
-    final entry = await backend.getEntryAt(dbName, position, keyType);
+    final entry = await backend.getEntryAt(path, position, keyType);
+    if (entry == null) return null;
+
+    // Decode entry
+    final reader = BinaryReader(entry.data);
+    return reader.decodeEntry();
+  }
+
+  Future<Map<String, dynamic>?> getEntryAt(int position) async {
+    final entry = await backend.getEntryAt(path, position, keyType);
     if (entry == null) return null;
 
     // Decode entry
@@ -32,7 +40,7 @@ final class DataBucket {
   Future<void> deleteAll(List<dynamic> keys) async {
     // TODO: implement transaction
     for (var key in keys) {
-      await backend.appendEntry(collectionName, Entry.deleted(key));
+      await backend.appendEntry(path, Entry.deleted(key));
     }
 
     // TODO: remove data from indexes
@@ -42,16 +50,23 @@ final class DataBucket {
     // TODO: implement txn
     for (final entry in entries.entries) {
       entry.value[kIdIndexName] = entry.key;
-      int position = await backend.appendEntry(collectionName, Entry.fromData(entry.key, entry.value));
+      final int position = await backend.appendEntry(path, Entry.fromData(entry.key, entry.value));
 
       // update indexes
       for (final MapEntry(value: index) in indexes.entries) {
         // todo(tomas): joining with an underscore is a terrible idea for composite indexes, but fix later
-        final indexValues = index.indexDefinition.fields.map((e) => entry.value[e]).toList(growable: false).join("_");
-        index.insert(indexValues, position);
+        final indexValues = index.indexDefinition.fields.map((e) => entry.value[e]).toList(growable: false);
+        index.insert(indexValues.length > 1 ? indexValues.join("_") : indexValues[0], position);
       }
     }
 
-    // TODO: dump indexes to file
+    // dump indexes to file
+    for (final index in indexes.values.where((element) => element.dirty)) {
+      await backend.writeIndex(index.path, index);
+    }
+  }
+
+  Index indexWhere(String field) {
+    return indexes.values.firstWhere((element) => element.indexDefinition.fields.contains(field));
   }
 }

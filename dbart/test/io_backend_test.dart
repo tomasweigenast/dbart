@@ -25,17 +25,35 @@ void main() {
 
     test("write data", () async {
       final backend = IOBackend();
-      await backend.setEntryAt(
+      await backend.appendEntry(
+        "tmp/test1",
+        Entry.fromData(1, {"id": 1, "name": "Tomás"}),
+      );
+
+      final entry = Entry.fromData(2, {"id": 2, "name": "Alex"});
+      int pos = await backend.appendEntry(
+        "tmp/test1",
+        entry,
+      );
+
+      await backend.appendEntry(
+        "tmp/test1",
+        Entry.fromData(3, {"id": 3, "name": "Matias"}),
+      );
+
+      var data = await backend.getEntryAt("tmp/test1", pos, KeyType.int);
+      expect(data!.data, entry.data);
+
+      pos = await backend.appendEntry(
           "tmp/test1",
-          0,
           Entry(
-            key: "1",
-            data: utf8.encode("entry1"),
-            deleted: false,
+            key: 4,
+            data: utf8.encode("entry4"),
+            deleted: true,
           ));
 
-      final data = await backend.getEntryAt("tmp/test1", 0, KeyType.string);
-      print(utf8.decode(data!.data));
+      data = await backend.getEntryAt("tmp/test1", pos, KeyType.int);
+      expect(utf8.decode(data!.data), equals("entry4"));
     });
   });
 }

@@ -1,22 +1,24 @@
-import 'package:dbart/src/database/type_converter.dart';
+part of '../database.dart';
 
-final class CollectionDefinition<T> {
-  final String? name;
-  final List<CollectionIndex<T>> indexes;
-  final TypeConverter<T> converter;
+final class CollectionDefinition<K extends Comparable, V> {
+  final String name;
+  final List<Index> indexes;
+  final TypeConverter<V> converter;
+  final Collection<K, V> collection;
 
-  const CollectionDefinition({
+  CollectionDefinition({
     required this.converter,
-    this.name,
+    required this.name,
+    required this.collection,
     this.indexes = const [],
   });
 }
 
-final class CollectionIndex<T> {
+final class CollectionIndex<K extends Comparable> {
   final String name;
   final Set<String> fields;
   final bool descending;
-  final Comparator? comparator;
+  final Comparator<K>? comparator;
 
   const CollectionIndex({
     required this.name,

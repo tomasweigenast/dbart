@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dbart/src/binary/binary_reader.dart';
 import 'package:dbart/src/binary/binary_writer.dart';
-import 'package:dbart/src/database/collection/collection_def.dart';
+import 'package:dbart/src/database/database.dart';
 import 'package:dbart/src/struct/indexable_skip_list.dart';
 import 'package:dbart/src/utils/utils.dart';
 
@@ -12,11 +12,11 @@ import 'package:dbart/src/utils/utils.dart';
 final class Index<K extends Comparable> {
   final IndexableSkipList<K, int> _skipList;
   final CollectionIndex indexDefinition;
+  late final String path;
 
-  Index({
-    required this.indexDefinition,
-    Comparator<K>? comparator,
-  }) : _skipList = IndexableSkipList<K, int>(comparator ?? Comparable.compare);
+  bool dirty = false;
+
+  Index(this.indexDefinition) : _skipList = IndexableSkipList<K, int>(indexDefinition.comparator ?? Comparable.compare);
 
   /// Retrieves the position of an entity in the storage
   @preferInline
@@ -27,9 +27,15 @@ final class Index<K extends Comparable> {
   @preferInline
   void insert(K key, int position) {
     _skipList.insert(key, position);
+    dirty = true;
   }
 
+  @preferInline
+  Iterable<int> valuesFromKey(K key) => _skipList.valuesFromKey(key);
+
   void mergeBuffer(Uint8List buffer) {
+    if (buffer.isEmpty) return;
+
     final reader = BinaryReader(buffer);
     final totalEntries = reader.readUint32();
     dynamic Function() readKey = switch (K) {

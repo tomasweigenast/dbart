@@ -20,7 +20,12 @@ final class IOBackend implements BackendBase {
   Future<Uint8List> getIndex(String name) async {
     final handle = pool.getHandle("$name$_kIndexSuffix");
     handle.setPositionSync(0);
-    final indexSize = (await handle.read(4)).uint32();
+    int indexSize;
+    try {
+      indexSize = (await handle.read(4)).uint32();
+    } catch (_) {
+      return Uint8List(0);
+    }
     final buffer = Uint8List(indexSize);
     int read = await handle.readInto(buffer);
     if (read + 4 < indexSize) {
@@ -35,9 +40,11 @@ final class IOBackend implements BackendBase {
   Future<void> writeIndex(String name, Index index) async {
     final indexBuffer = index.toBuffer();
     final handle = pool.getHandle("$name$_kIndexSuffix");
+    handle.setPositionSync(0);
     final buffer = Uint8List(4 + indexBuffer.length);
     buffer.setUint32(indexBuffer.length);
     buffer.setRange(4, 4 + indexBuffer.length, indexBuffer);
+    handle.truncateSync(4 + indexBuffer.length);
     await handle.writeFrom(buffer);
     await handle.flush();
   }
@@ -53,7 +60,8 @@ final class IOBackend implements BackendBase {
 
   @override
   Future<int> appendEntry(String name, Entry entry) async {
-    final handle = pool.getHandle("$name$_kDataSuffix");
+    final handleName = "$name$_kDataSuffix";
+    final handle = pool.getHandle(handleName);
     final pos = handle.lengthSync();
     handle.setPositionSync(pos);
     final buffer = entry.toBuffer();
@@ -64,9 +72,15 @@ final class IOBackend implements BackendBase {
 
   @override
   Future<Entry?> getEntryAt(String name, int position, KeyType keyType) async {
-    final handle = pool.getHandle("$name.dbart");
+    final handleName = "$name$_kDataSuffix";
+    final handle = pool.getHandle(handleName);
     handle.setPositionSync(position);
-    final entrySize = (await handle.read(4)).uint32();
+    int entrySize;
+    try {
+      entrySize = (await handle.read(4)).uint32();
+    } catch (_) {
+      return null;
+    }
     final buffer = Uint8List(entrySize);
     await handle.readInto(buffer);
     return BinaryReader(buffer).readEntry(keyType);

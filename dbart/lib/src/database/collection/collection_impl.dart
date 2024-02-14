@@ -1,18 +1,19 @@
-import 'package:dbart/src/database/collection/collection.dart';
-import 'package:dbart/src/database/type_converter.dart';
-import 'package:dbart/src/storage_manager/data_bucket.dart';
-import 'package:dbart/src/storage_manager/storage_manager.dart';
+part of '../database.dart';
 
 final class CollectionImpl<K extends Comparable, V> implements Collection<K, V> {
-  final StorageManager storage;
-  final TypeConverter<V> typeConverter;
-  final DataBucket dataBucket;
+  late final StorageManager storage;
+  late final TypeConverter<V> typeConverter;
+  late final DataBucket dataBucket;
 
-  CollectionImpl({
-    required this.storage,
-    required this.typeConverter,
-    required this.dataBucket,
-  });
+  void init({
+    required StorageManager storage,
+    required TypeConverter<V> typeConverter,
+    required DataBucket dataBucket,
+  }) {
+    this.storage = storage;
+    this.typeConverter = typeConverter;
+    this.dataBucket = dataBucket;
+  }
 
   @override
   Future<void> clear() {
@@ -42,4 +43,20 @@ final class CollectionImpl<K extends Comparable, V> implements Collection<K, V> 
   @override
   Future<void> insertAll(Map<K, V> values) =>
       dataBucket.insertAll(values.map((key, value) => MapEntry(key, typeConverter.toDatabase(value))));
+
+  @override
+  Future<List<V>> find(String key, value) async {
+    final index = dataBucket.indexWhere(key);
+    final positions = index.valuesFromKey(value);
+    final results = <V>[];
+    for (final pos in positions) {
+      final entry = await dataBucket.getEntryAt(pos);
+      if (entry == null) continue;
+
+      results.add(typeConverter.fromDatabase(entry));
+      break;
+    }
+
+    return results;
+  }
 }
